@@ -1,49 +1,62 @@
 // controllers/UsersController.js
 
-import sha1 from 'sha1';
+import redisClient from '../utils/redis';
 import dbClient from '../utils/db';
 
 class UsersController {
-  // POST /users
+  // POST /users (existing code)
   static async postNew(req, res) {
     const { email, password } = req.body;
 
-    // Check if email is provided
     if (!email) {
       return res.status(400).json({ error: 'Missing email' });
     }
 
-    // Check if password is provided
     if (!password) {
       return res.status(400).json({ error: 'Missing password' });
     }
 
-    // Ensure the MongoDB connection is ready
-    if (!dbClient.isAlive()) {
-      return res.status(500).json({ error: 'MongoDB connection is not ready' });
-    }
-
-    // Check if the email already exists in the database
     const usersCollection = dbClient.db.collection('users');
     const existingUser = await usersCollection.findOne({ email });
+
     if (existingUser) {
       return res.status(400).json({ error: 'Already exist' });
     }
 
-    // Hash the password using SHA1
     const hashedPassword = sha1(password);
 
-    // Insert the new user into the database
-    const newUser = await usersCollection.insertOne({
-      email,
-      password: hashedPassword,
-    });
+    const newUser = await usersCollection.insertOne({ email, password: hashedPassword });
 
-    // Return the new user's id and email
     return res.status(201).json({
       id: newUser.insertedId,
       email,
     });
+  }
+
+  // GET /users/me
+  static async getMe(req, res) {
+    const token = req.headers['x-token'];
+
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const key = `auth_${token}`;
+    const userId = await redisClient.get(key);
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Retrieve user from database
+    const usersCollection = dbClient.db.collection('users');
+    const user = await usersCollection.findOne({ _id: dbClient.objectId(userId) });
+
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    return res.status(200).json({ id: user._id, email: user.email });
   }
 }
 
