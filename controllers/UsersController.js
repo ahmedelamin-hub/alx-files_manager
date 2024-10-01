@@ -18,6 +18,11 @@ class UsersController {
       return res.status(400).json({ error: 'Missing password' });
     }
 
+    // Ensure the MongoDB connection is ready
+    if (!dbClient.isAlive()) {
+      return res.status(500).json({ error: 'MongoDB connection is not ready' });
+    }
+
     // Check if the email already exists in the database
     const usersCollection = dbClient.db.collection('users');
     const existingUser = await usersCollection.findOne({ email });
