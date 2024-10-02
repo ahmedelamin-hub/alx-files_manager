@@ -1,62 +1,38 @@
 // controllers/UsersController.js
-
-import redisClient from '../utils/redis';
+import sha1 from 'sha1';
 import dbClient from '../utils/db';
 
 class UsersController {
-  // POST /users (existing code)
   static async postNew(req, res) {
     const { email, password } = req.body;
 
+    // Check if email is provided
     if (!email) {
       return res.status(400).json({ error: 'Missing email' });
     }
 
+    // Check if password is provided
     if (!password) {
       return res.status(400).json({ error: 'Missing password' });
     }
 
-    const usersCollection = dbClient.db.collection('users');
-    const existingUser = await usersCollection.findOne({ email });
-
-    if (existingUser) {
+    // Check if the user already exists in the database
+    const userExists = await dbClient.db.collection('users').findOne({ email });
+    if (userExists) {
       return res.status(400).json({ error: 'Already exist' });
     }
 
+    // Hash the password using SHA1
     const hashedPassword = sha1(password);
 
-    const newUser = await usersCollection.insertOne({ email, password: hashedPassword });
-
-    return res.status(201).json({
-      id: newUser.insertedId,
+    // Insert the new user into the database
+    const result = await dbClient.db.collection('users').insertOne({
       email,
+      password: hashedPassword,
     });
-  }
 
-  // GET /users/me
-  static async getMe(req, res) {
-    const token = req.headers['x-token'];
-
-    if (!token) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const key = `auth_${token}`;
-    const userId = await redisClient.get(key);
-
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    // Retrieve user from database
-    const usersCollection = dbClient.db.collection('users');
-    const user = await usersCollection.findOne({ _id: dbClient.objectId(userId) });
-
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    return res.status(200).json({ id: user._id, email: user.email });
+    // Respond with the newly created user's id and email
+    return res.status(201).json({ id: result.insertedId, email });
   }
 }
 
