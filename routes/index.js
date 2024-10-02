@@ -9,11 +9,11 @@ const router = Router();
 // Existing routes
 router.get('/status', AppController.getStatus);
 router.get('/stats', AppController.getStats);
-router.post('/users', UsersController.postNew);
+router.post('/users', UsersController.postNew);  // Creating new users
 
 // New routes for authentication
-router.get('/connect', AuthController.getConnect);
-router.get('/disconnect', AuthController.getDisconnect);
-router.get('/users/me', UsersController.getMe);
+router.get('/connect', AuthController.getConnect);  // Authenticate user
+router.get('/disconnect', AuthController.getDisconnect);  // Log out user
+router.get('/users/me', UsersController.getMe);  // Get authenticated user's info
 
 export default router;
